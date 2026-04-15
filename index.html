@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mô phỏng bài toán người đưa thư</title>
+  <title>Mô phỏng bài toán người giao hàng</title>
   <style>
     :root {
       --bg: #eef4ef;
@@ -429,27 +429,27 @@
 <body>
   <div class="app">
     <aside class="panel">
-      <h1>Bài toán người đưa thư</h1>
+      <h1>Bài toán người giao hàng</h1>
       <p class="intro">
-        Mô phỏng một người phát thư phải đi qua mọi con đường ít nhất một lần rồi quay lại điểm xuất phát.
-        Trang này tự tìm các nhà có bậc lẻ, thêm những đoạn cần lặp, rồi tạo chu trình Euler tối ưu hơn cho người đưa thư.
+        Mô phỏng bài toán người giao hàng theo TSP: đi qua tất cả các điểm giao đúng một lần rồi quay lại điểm xuất phát.
+        Trang này tính đường ngắn nhất giữa các điểm, sau đó tìm thứ tự ghé thăm có tổng chi phí nhỏ nhất.
       </p>
 
       <div class="metrics">
         <div class="metric">
-          <div class="label">Tổng đường ban đầu</div>
+          <div class="label">Tổng trọng số cạnh</div>
           <div class="value" id="baseDistance">0</div>
         </div>
         <div class="metric">
-          <div class="label">Độ dài sau tối ưu</div>
+          <div class="label">Chi phí TSP</div>
           <div class="value" id="routeDistance">0</div>
         </div>
         <div class="metric">
-          <div class="label">Nhà bậc lẻ</div>
+          <div class="label">Số điểm giao</div>
           <div class="value" id="oddCount">0</div>
         </div>
         <div class="metric">
-          <div class="label">Cạnh phải lặp</div>
+          <div class="label">Số chặng</div>
           <div class="value" id="duplicateCount">0</div>
         </div>
       </div>
@@ -502,19 +502,15 @@
       <div class="legend">
         <div class="legend-item">
           <span class="swatch" style="background: var(--road);"></span>
-          <span>Đường phố ban đầu</span>
-        </div>
-        <div class="legend-item">
-          <span class="swatch" style="background: var(--road-dup);"></span>
-          <span>Đường phải đi lặp thêm để khử đỉnh lẻ</span>
+          <span>Các cạnh của đồ thị</span>
         </div>
         <div class="legend-item">
           <span class="swatch" style="background: var(--route);"></span>
-          <span>Lộ trình người đưa thư đang đi</span>
+          <span>Lộ trình TSP tối ưu đang được mô phỏng</span>
         </div>
         <div class="legend-item">
           <span class="swatch" style="background: var(--accent);"></span>
-          <span>Nhà có bậc lẻ</span>
+          <span>Điểm giao hàng</span>
         </div>
       </div>
 
@@ -525,17 +521,17 @@
     <main class="map-card">
       <div class="map-header">
         <div>
-          <h2>Mạng đường và các ngôi nhà</h2>
-          <div class="helper">Người đưa thư xuất phát ở nhà đầu tiên rồi đi theo chu trình tìm được.</div>
+          <h2>Đồ thị giao hàng và lộ trình TSP</h2>
+          <div class="helper">Người giao hàng xuất phát ở điểm đầu tiên, đi qua mọi điểm còn lại rồi quay về nơi xuất phát.</div>
         </div>
         <div class="status" id="statusText">Sẵn sàng mô phỏng.</div>
       </div>
       <div class="canvas-wrap">
-        <svg id="mapSvg" viewBox="0 0 900 620" aria-label="Mô phỏng bài toán người đưa thư"></svg>
+        <svg id="mapSvg" viewBox="0 0 900 620" aria-label="Mô phỏng bài toán người giao hàng"></svg>
       </div>
       <div class="caption">
-        Ý tưởng của bài toán: nếu tất cả đỉnh đều có bậc chẵn thì đi được một vòng qua mọi cạnh đúng kiểu Euler.
-        Nếu còn đỉnh lẻ, ta ghép cặp các đỉnh lẻ với chi phí nhỏ nhất rồi lặp lại một số đoạn đường để biến toàn đồ thị thành đồ thị Euler.
+        Ý tưởng của TSP: từ các cạnh có trọng số, ta tính khoảng cách ngắn nhất giữa mọi cặp điểm giao hàng.
+        Sau đó thuật toán Held-Karp tìm chu trình có chi phí nhỏ nhất để ghé hết các điểm đúng một lần rồi quay về điểm xuất phát.
       </div>
     </main>
   </div>
@@ -697,7 +693,7 @@
       });
 
       if (!isConnected(ids, edges)) {
-        throw new Error("Đồ thị phải liên thông để mô phỏng bài toán người đưa thư.");
+        throw new Error("Đồ thị phải liên thông để mô phỏng bài toán người giao hàng.");
       }
 
       return {
@@ -764,16 +760,15 @@
         return entry;
       });
 
-      const oddNodes = [...degrees.entries()]
-        .filter(([, degree]) => degree % 2 === 1)
-        .map(([id]) => id);
+      if (nodes.size > 12) {
+        throw new Error("TSP trong trang này phù hợp với đồ thị tối đa 12 điểm để vẫn chạy mượt.");
+      }
 
+      const nodeIds = [...nodes.keys()];
       const baseDistanceValue = edges.reduce((sum, edge) => sum + edge.w, 0);
-      const shortestLookup = computeShortestPaths(nodes, adjacency, oddNodes);
-      const pairing = findMinimumPairing(oddNodes, shortestLookup);
-      const duplicatedEdges = pairingToEdges(pairing, shortestLookup);
-      const eulerSteps = createEulerCircuit(nodes, edges, duplicatedEdges, map.nodes[0].id);
-      const finalDistance = baseDistanceValue + duplicatedEdges.reduce((sum, item) => sum + item.w, 0);
+      const shortestLookup = computeShortestPaths(nodes, adjacency, nodeIds);
+      const tspResult = solveTsp(nodeIds, shortestLookup);
+      const routeSteps = tspPathToSteps(tspResult.tour, shortestLookup);
 
       return {
         ...map,
@@ -781,17 +776,17 @@
         edges,
         adjacency,
         degrees,
-        oddNodes,
-        duplicatedEdges,
-        eulerSteps,
+        nodeIds,
+        routeSteps,
+        visitOrder: tspResult.tour,
         baseDistanceValue,
-        finalDistance
+        finalDistance: tspResult.cost
       };
     }
 
-    function computeShortestPaths(nodes, adjacency, oddNodes) {
+    function computeShortestPaths(nodes, adjacency, nodeIds) {
       const lookup = {};
-      oddNodes.forEach((start) => {
+      nodeIds.forEach((start) => {
         const { dist, prev } = dijkstra(nodes, adjacency, start);
         lookup[start] = { dist, prev };
       });
@@ -833,98 +828,100 @@
       return { dist, prev };
     }
 
-    function findMinimumPairing(oddNodes, shortestLookup) {
-      if (oddNodes.length === 0) return [];
+    function solveTsp(nodeIds, shortestLookup) {
+      const n = nodeIds.length;
+      const fullMask = (1 << n) - 1;
+      const dp = Array.from({ length: 1 << n }, () => Array(n).fill(Infinity));
+      const parent = Array.from({ length: 1 << n }, () => Array(n).fill(-1));
+      dp[1][0] = 0;
 
-      const memo = new Map();
+      for (let mask = 0; mask <= fullMask; mask += 1) {
+        for (let u = 0; u < n; u += 1) {
+          if (!(mask & (1 << u)) || dp[mask][u] === Infinity) continue;
 
-      function solve(remaining) {
-        if (remaining.length === 0) return { cost: 0, pairs: [] };
-        const key = remaining.join("|");
-        if (memo.has(key)) return memo.get(key);
+          for (let v = 0; v < n; v += 1) {
+            if (mask & (1 << v)) continue;
 
-        const first = remaining[0];
-        let best = { cost: Infinity, pairs: [] };
-
-        for (let i = 1; i < remaining.length; i += 1) {
-          const second = remaining[i];
-          const nextRemaining = remaining.filter((node) => node !== first && node !== second);
-          const partial = solve(nextRemaining);
-          const pairCost = shortestLookup[first].dist[second];
-          const candidate = {
-            cost: partial.cost + pairCost,
-            pairs: [[first, second], ...partial.pairs]
-          };
-          if (candidate.cost < best.cost) best = candidate;
+            const nextMask = mask | (1 << v);
+            const cost = dp[mask][u] + shortestLookup[nodeIds[u]].dist[nodeIds[v]];
+            if (cost < dp[nextMask][v]) {
+              dp[nextMask][v] = cost;
+              parent[nextMask][v] = u;
+            }
+          }
         }
-
-        memo.set(key, best);
-        return best;
       }
 
-      return solve([...oddNodes]).pairs;
+      let bestCost = Infinity;
+      let lastIndex = -1;
+      for (let i = 1; i < n; i += 1) {
+        const totalCost = dp[fullMask][i] + shortestLookup[nodeIds[i]].dist[nodeIds[0]];
+        if (totalCost < bestCost) {
+          bestCost = totalCost;
+          lastIndex = i;
+        }
+      }
+
+      if (n === 1) {
+        return { cost: 0, tour: [nodeIds[0], nodeIds[0]] };
+      }
+
+      const order = [];
+      let mask = fullMask;
+      let cursor = lastIndex;
+
+      while (cursor !== -1) {
+        order.push(nodeIds[cursor]);
+        const previous = parent[mask][cursor];
+        mask ^= (1 << cursor);
+        cursor = previous;
+      }
+
+      order.reverse();
+      order.push(nodeIds[0]);
+
+      return { cost: bestCost, tour: order };
     }
 
-    function pairingToEdges(pairing, lookup) {
-      const duplicates = [];
+    function tspPathToSteps(tour, lookup) {
+      const steps = [];
 
-      pairing.forEach(([start, end], pairIndex) => {
+      for (let i = 0; i < tour.length - 1; i += 1) {
+        const start = tour[i];
+        const end = tour[i + 1];
+        const pathNodes = [end];
         let cursor = end;
+
         while (cursor !== start) {
           const prevStep = lookup[start].prev[cursor];
-          if (!prevStep) break;
-          duplicates.push({
-            id: `dup-${pairIndex}-${duplicates.length}`,
-            a: prevStep.node,
-            b: cursor,
-            w: prevStep.w
-          });
+          if (!prevStep) {
+            throw new Error(`Không thể dựng đường đi từ ${start} đến ${end}.`);
+          }
           cursor = prevStep.node;
+          pathNodes.push(cursor);
         }
-      });
 
-      return duplicates;
-    }
+        pathNodes.reverse();
 
-    function createEulerCircuit(nodes, edges, duplicatedEdges, startNode) {
-      const allEdges = [
-        ...edges.map((edge) => ({ ...edge, duplicate: false })),
-        ...duplicatedEdges.map((edge) => ({ ...edge, duplicate: true }))
-      ];
-
-      const localAdj = new Map();
-      nodes.forEach((_, id) => localAdj.set(id, []));
-      allEdges.forEach((edge, index) => {
-        const edgeRef = { ...edge, localId: `local-${index}` };
-        localAdj.get(edge.a).push({ edge: edgeRef, to: edge.b });
-        localAdj.get(edge.b).push({ edge: edgeRef, to: edge.a });
-      });
-
-      const used = new Set();
-      const stack = [{ node: startNode, via: null }];
-      const circuit = [];
-
-      while (stack.length > 0) {
-        const top = stack[stack.length - 1];
-        const available = localAdj.get(top.node).find((item) => !used.has(item.edge.localId));
-
-        if (available) {
-          used.add(available.edge.localId);
-          stack.push({
-            node: available.to,
-            via: {
-              from: top.node,
-              to: available.to,
-              edge: available.edge
+        for (let j = 0; j < pathNodes.length - 1; j += 1) {
+          const from = pathNodes[j];
+          const to = pathNodes[j + 1];
+          const edgeInfo = lookup[from]?.prev?.[to];
+          const weight = edgeInfo ? edgeInfo.w : lookup[start].dist[to] - lookup[start].dist[from];
+          steps.push({
+            from,
+            to,
+            edge: {
+              w: weight,
+              tourIndex: i,
+              isVisitTarget: j === pathNodes.length - 2,
+              target: end
             }
           });
-        } else {
-          const popped = stack.pop();
-          if (popped.via) circuit.push(popped.via);
         }
       }
 
-      return circuit.reverse();
+      return steps;
     }
 
     function renderMap() {
@@ -947,11 +944,7 @@
         svg.appendChild(edgeLabel(edge));
       });
 
-      graph.duplicatedEdges.forEach((edge) => {
-        svg.appendChild(makeLine(edge.a, edge.b, "dup-road"));
-      });
-
-      graph.eulerSteps.forEach((step, index) => {
+      graph.routeSteps.forEach((step, index) => {
         const segment = makeLine(step.from, step.to, "route-segment");
         segment.dataset.index = String(index);
         svg.appendChild(segment);
@@ -959,10 +952,10 @@
       });
 
       graph.nodes.forEach((node) => {
-        svg.appendChild(drawHouse(node, graph.degrees.get(node.id), graph.oddNodes.includes(node.id)));
+        svg.appendChild(drawHouse(node, graph.degrees.get(node.id), false));
       });
 
-      const startNodeId = graph.eulerSteps[0]?.from || graph.nodes.keys().next().value;
+      const startNodeId = graph.routeSteps[0]?.from || graph.nodes.keys().next().value;
       postmanMarker = drawPostman(graph.nodes.get(startNodeId));
       svg.appendChild(postmanMarker);
     }
@@ -1081,23 +1074,22 @@
       const graph = currentGraph;
       baseDistance.textContent = `${graph.baseDistanceValue}`;
       routeDistance.textContent = `${graph.finalDistance}`;
-      oddCount.textContent = `${graph.oddNodes.length}`;
-      duplicateCount.textContent = `${graph.duplicatedEdges.length}`;
+      oddCount.textContent = `${graph.nodeIds.length}`;
+      duplicateCount.textContent = `${Math.max(graph.visitOrder.length - 1, 0)}`;
       mapName.textContent = graph.name;
 
-      summary.textContent = graph.oddNodes.length
-        ? `Nhà bậc lẻ: ${graph.oddNodes.join(", ")}. Cần lặp ${graph.duplicatedEdges.length} đoạn đường để mọi bậc trở thành chẵn.`
-        : "Không có nhà bậc lẻ, người đưa thư có thể đi qua mọi đường đúng một lần rồi quay về điểm xuất phát.";
+      summary.textContent = `Thứ tự ghé thăm tối ưu: ${graph.visitOrder.join(" -> ")}. Lộ trình đỏ trên hình là đường đi ngắn nhất tương ứng với thứ tự này.`;
 
       routeList.innerHTML = "";
-      graph.eulerSteps.forEach((step, index) => {
+      graph.routeSteps.forEach((step, index) => {
         const item = document.createElement("li");
-        item.textContent = `${index + 1}. ${step.from} -> ${step.to} (${step.edge.w})${step.edge.duplicate ? " | đoạn lặp" : ""}`;
+        const targetNote = step.edge.isVisitTarget ? ` | chạm điểm ${step.edge.target}` : "";
+        item.textContent = `${index + 1}. ${step.from} -> ${step.to} (${step.edge.w})${targetNote}`;
         routeList.appendChild(item);
       });
 
-      const startNodeId = graph.eulerSteps[0]?.from || graph.nodes.keys().next().value;
-      statusText.textContent = `Lộ trình gồm ${graph.eulerSteps.length} chặng, xuất phát tại nhà ${startNodeId}.`;
+      const startNodeId = graph.routeSteps[0]?.from || graph.nodes.keys().next().value;
+      statusText.textContent = `Lộ trình gồm ${graph.routeSteps.length} chặng, xuất phát tại điểm ${startNodeId}.`;
     }
 
     function movePostman(node) {
@@ -1123,9 +1115,9 @@
         item.style.outline = "none";
       });
 
-      const firstNodeId = currentGraph.eulerSteps[0]?.from || currentGraph.nodes.keys().next().value;
+      const firstNodeId = currentGraph.routeSteps[0]?.from || currentGraph.nodes.keys().next().value;
       movePostman(currentGraph.nodes.get(firstNodeId));
-      statusText.textContent = `Đã đặt lại. Bắt đầu ở nhà ${firstNodeId}.`;
+      statusText.textContent = `Đã đặt lại. Bắt đầu ở điểm ${firstNodeId}.`;
     }
 
     function highlightStep(stepIndex) {
@@ -1160,7 +1152,7 @@
         return;
       }
 
-      if (animationProgress >= currentGraph.eulerSteps.length * segmentLength) {
+      if (animationProgress >= currentGraph.routeSteps.length * segmentLength) {
         animationProgress = 0;
         routeSegments.forEach((segment) => segment.classList.remove("active"));
       }
@@ -1168,7 +1160,7 @@
       isPlaying = true;
       lastTimestamp = 0;
       playBtn.textContent = "Tạm dừng";
-      statusText.textContent = "Người đưa thư đang phát thư.";
+      statusText.textContent = "Người giao hàng đang di chuyển trên lộ trình.";
       animationFrame = requestAnimationFrame(stepAnimation);
     }
 
@@ -1180,16 +1172,16 @@
 
       animationProgress += delta * Number(speedRange.value);
 
-      const maxProgress = currentGraph.eulerSteps.length * segmentLength;
+      const maxProgress = currentGraph.routeSteps.length * segmentLength;
       const boundedProgress = Math.min(animationProgress, maxProgress);
       const stepIndex = Math.min(
         Math.floor(boundedProgress / segmentLength),
-        currentGraph.eulerSteps.length - 1
+        currentGraph.routeSteps.length - 1
       );
       const localProgress = boundedProgress >= maxProgress
         ? 1
         : Math.min((boundedProgress % segmentLength) / segmentLength, 1);
-      const step = currentGraph.eulerSteps[stepIndex];
+      const step = currentGraph.routeSteps[stepIndex];
 
       highlightStep(stepIndex);
       interpolatePostman(step.from, step.to, localProgress);
@@ -1199,7 +1191,7 @@
         animationFrame = null;
         lastTimestamp = 0;
         playBtn.textContent = "Chạy lại";
-        statusText.textContent = `Hoàn thành. Người đưa thư đã quay lại nhà ${currentGraph.eulerSteps[currentGraph.eulerSteps.length - 1].to}.`;
+        statusText.textContent = `Hoàn thành. Người giao hàng đã quay lại điểm ${currentGraph.routeSteps[currentGraph.routeSteps.length - 1].to}.`;
         return;
       }
 
