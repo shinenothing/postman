@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mô phỏng bài toán người đưa thư</title>
+  <style>
+    :root {
+      --bg: #eef4ef;
+      --panel: rgba(255, 252, 245, 0.92);
+      --line: #4f6f52;
+      --line-soft: #8fb996;
+      --accent: #d95d39;
+      --accent-2: #1f6e8c;
+      --text: #243127;
+      --muted: #66756a;
+      --road: #a67c52;
+      --road-dup: #d95d39;
+      --house: #f7b267;
+      --house-stroke: #8d5524;
+      --route: #0c7c59;
+      --shadow: 0 18px 48px rgba(52, 76, 58, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(217, 93, 57, 0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(31, 110, 140, 0.16), transparent 30%),
+        linear-gradient(145deg, #edf6ee 0%, #f7f3eb 46%, #e9f0f7 100%);
+      padding: 24px;
+    }
+
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel,
+    .map-card {
+      background: var(--panel);
+      border: 1px solid rgba(79, 111, 82, 0.12);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .panel {
+      padding: 24px;
+      position: sticky;
+      top: 24px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.8rem, 2vw, 2.4rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .intro,
+    .helper,
+    .legend {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.98rem;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 22px 0;
+    }
+
+    .metric {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(79, 111, 82, 0.12);
+    }
+
+    .metric .label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .metric .value {
+      margin-top: 6px;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    button,
+    select,
+    input[type="range"] {
+      width: 100%;
+    }
+
+    button,
+    select {
+      border: none;
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #ee964b 100%);
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(217, 93, 57, 0.28);
+    }
+
+    .secondary {
+      background: rgba(31, 110, 140, 0.1);
+      color: var(--accent-2);
+      border: 1px solid rgba(31, 110, 140, 0.16);
+    }
+
+    .control-block {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.66);
+      border: 1px solid rgba(79, 111, 82, 0.12);
+    }
+
+    .control-block label {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .stack-label {
+      display: block;
+    }
+
+    .stack-label span {
+      display: block;
+    }
+
+    .stack-label .helper {
+      margin-top: 6px;
+      font-weight: 400;
+      font-size: 0.88rem;
+    }
+
+    select {
+      background: #fff;
+      border: 1px solid rgba(79, 111, 82, 0.18);
+      color: var(--text);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      border: 1px solid rgba(79, 111, 82, 0.18);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      line-height: 1.45;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .error {
+      margin-top: 10px;
+      color: #a12d1e;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      min-height: 1.4em;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .legend {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0 20px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    .route-list {
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .route-list li {
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.72);
+      border-radius: 14px;
+      border: 1px solid rgba(79, 111, 82, 0.1);
+      font-size: 0.95rem;
+    }
+
+    .map-card {
+      overflow: hidden;
+    }
+
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      padding: 20px 24px 10px;
+    }
+
+    .map-header h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-align: right;
+    }
+
+    .canvas-wrap {
+      padding: 12px 16px 16px;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(202, 229, 205, 0.88) 0%, rgba(233, 241, 233, 0.9) 100%);
+      border: 1px solid rgba(79, 111, 82, 0.12);
+    }
+
+    .road {
+      stroke: var(--road);
+      stroke-width: 12;
+      stroke-linecap: round;
+      opacity: 0.9;
+    }
+
+    .road-outline {
+      stroke: rgba(255, 255, 255, 0.46);
+      stroke-width: 4;
+      stroke-linecap: round;
+    }
+
+    .dup-road {
+      stroke: var(--road-dup);
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-dasharray: 12 8;
+      opacity: 0.88;
+    }
+
+    .house-base {
+      fill: #fff7eb;
+      stroke: var(--house-stroke);
+      stroke-width: 2;
+    }
+
+    .house-roof {
+      fill: var(--house);
+      stroke: var(--house-stroke);
+      stroke-width: 2;
+    }
+
+    .house-label {
+      font-size: 16px;
+      font-weight: 700;
+      fill: var(--text);
+      text-anchor: middle;
+    }
+
+    .degree-badge {
+      fill: #fff;
+      stroke: rgba(36, 49, 39, 0.18);
+      stroke-width: 1.5;
+    }
+
+    .degree-text {
+      font-size: 12px;
+      font-weight: 700;
+      fill: var(--text);
+      text-anchor: middle;
+    }
+
+    .odd-ring {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 4;
+      stroke-dasharray: 5 5;
+      opacity: 0.95;
+    }
+
+    .route-segment {
+      fill: none;
+      stroke: var(--route);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.15;
+      transition: opacity 0.2s ease;
+    }
+
+    .route-segment.active {
+      opacity: 0.92;
+      filter: drop-shadow(0 3px 6px rgba(12, 124, 89, 0.2));
+    }
+
+    .postman {
+      fill: var(--accent-2);
+      stroke: #fff;
+      stroke-width: 4;
+    }
+
+    .postbag {
+      fill: #ffd166;
+      stroke: var(--text);
+      stroke-width: 2;
+    }
+
+    .caption {
+      padding: 0 24px 22px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 980px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 16px;
+      }
+
+      .panel,
+      .map-card {
+        border-radius: 20px;
+      }
+
+      .metrics,
+      .buttons {
+        grid-template-columns: 1fr;
+      }
+
+      .map-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .status {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>Bài toán người đưa thư</h1>
+      <p class="intro">
+        Mô phỏng một người phát thư phải đi qua mọi con đường ít nhất một lần rồi quay lại điểm xuất phát.
+        Trang này tự tìm các nhà có bậc lẻ, thêm những đoạn cần lặp, rồi tạo chu trình Euler tối ưu hơn cho người đưa thư.
+      </p>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="label">Tổng đường ban đầu</div>
+          <div class="value" id="baseDistance">0</div>
+        </div>
+        <div class="metric">
+          <div class="label">Độ dài sau tối ưu</div>
+          <div class="value" id="routeDistance">0</div>
+        </div>
+        <div class="metric">
+          <div class="label">Nhà bậc lẻ</div>
+          <div class="value" id="oddCount">0</div>
+        </div>
+        <div class="metric">
+          <div class="label">Cạnh phải lặp</div>
+          <div class="value" id="duplicateCount">0</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="control-block">
+          <label for="mapSelect">
+            <span>Bản đồ</span>
+            <span id="mapName">Khu phố 1</span>
+          </label>
+          <select id="mapSelect">
+            <option value="0">Khu phố 1</option>
+            <option value="1">Khu phố 2</option>
+            <option value="2">Khu phố 3</option>
+          </select>
+        </div>
+
+        <div class="control-block full">
+          <label class="stack-label" for="graphInput">
+            <span>Danh sách cạnh</span>
+            <span class="helper">Mỗi dòng là một cạnh theo dạng `đỉnh1 đỉnh2` hoặc `đỉnh1 đỉnh2 trọng_số`.</span>
+          </label>
+          <textarea id="graphInput" spellcheck="false">1 2
+2 3
+2 4</textarea>
+          <div class="buttons" style="margin-top: 12px;">
+            <button class="primary" id="applyGraphBtn">Tạo từ danh sách cạnh</button>
+            <button class="secondary" id="sampleBtn">Nạp ví dụ mẫu</button>
+          </div>
+          <div class="note">
+            Ví dụ: `1 2`, `2 3`, `2 4`. Nếu không ghi trọng số thì mặc định mỗi cạnh có trọng số 1.
+          </div>
+          <div class="error" id="inputError"></div>
+        </div>
+
+        <div class="buttons">
+          <button class="primary" id="playBtn">Chạy mô phỏng</button>
+          <button class="secondary" id="resetBtn">Đặt lại</button>
+        </div>
+
+        <div class="control-block">
+          <label for="speedRange">
+            <span>Tốc độ</span>
+            <span id="speedValue">1.0x</span>
+          </label>
+          <input id="speedRange" type="range" min="0.5" max="2.5" step="0.1" value="1">
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <span class="swatch" style="background: var(--road);"></span>
+          <span>Đường phố ban đầu</span>
+        </div>
+        <div class="legend-item">
+          <span class="swatch" style="background: var(--road-dup);"></span>
+          <span>Đường phải đi lặp thêm để khử đỉnh lẻ</span>
+        </div>
+        <div class="legend-item">
+          <span class="swatch" style="background: var(--route);"></span>
+          <span>Lộ trình người đưa thư đang đi</span>
+        </div>
+        <div class="legend-item">
+          <span class="swatch" style="background: var(--accent);"></span>
+          <span>Nhà có bậc lẻ</span>
+        </div>
+      </div>
+
+      <p class="helper" id="summary"></p>
+      <ul class="route-list" id="routeList"></ul>
+    </aside>
+
+    <main class="map-card">
+      <div class="map-header">
+        <div>
+          <h2>Mạng đường và các ngôi nhà</h2>
+          <div class="helper">Người đưa thư xuất phát ở nhà đầu tiên rồi đi theo chu trình tìm được.</div>
+        </div>
+        <div class="status" id="statusText">Sẵn sàng mô phỏng.</div>
+      </div>
+      <div class="canvas-wrap">
+        <svg id="mapSvg" viewBox="0 0 900 620" aria-label="Mô phỏng bài toán người đưa thư"></svg>
+      </div>
+      <div class="caption">
+        Ý tưởng của bài toán: nếu tất cả đỉnh đều có bậc chẵn thì đi được một vòng qua mọi cạnh đúng kiểu Euler.
+        Nếu còn đỉnh lẻ, ta ghép cặp các đỉnh lẻ với chi phí nhỏ nhất rồi lặp lại một số đoạn đường để biến toàn đồ thị thành đồ thị Euler.
+      </div>
+    </main>
+  </div>
+  <script>
+    const maps = [
+      {
+        name: "Khu phố 1",
+        nodes: [
+          { id: "A", x: 110, y: 130 },
+          { id: "B", x: 320, y: 90 },
+          { id: "C", x: 560, y: 120 },
+          { id: "D", x: 740, y: 210 },
+          { id: "E", x: 600, y: 410 },
+          { id: "F", x: 340, y: 470 },
+          { id: "G", x: 130, y: 360 }
+        ],
+        edges: [
+          { a: "A", b: "B", w: 3 },
+          { a: "A", b: "G", w: 4 },
+          { a: "A", b: "F", w: 7 },
+          { a: "B", b: "C", w: 4 },
+          { a: "B", b: "G", w: 5 },
+          { a: "B", b: "F", w: 4 },
+          { a: "C", b: "D", w: 3 },
+          { a: "C", b: "E", w: 5 },
+          { a: "C", b: "F", w: 4 },
+          { a: "D", b: "E", w: 4 },
+          { a: "E", b: "F", w: 3 },
+          { a: "F", b: "G", w: 4 }
+        ]
+      },
+      {
+        name: "Khu phố 2",
+        nodes: [
+          { id: "A", x: 120, y: 110 },
+          { id: "B", x: 360, y: 95 },
+          { id: "C", x: 640, y: 120 },
+          { id: "D", x: 760, y: 290 },
+          { id: "E", x: 590, y: 490 },
+          { id: "F", x: 320, y: 520 },
+          { id: "G", x: 110, y: 400 },
+          { id: "H", x: 430, y: 300 }
+        ],
+        edges: [
+          { a: "A", b: "B", w: 4 },
+          { a: "A", b: "G", w: 5 },
+          { a: "B", b: "C", w: 4 },
+          { a: "B", b: "H", w: 3 },
+          { a: "B", b: "G", w: 6 },
+          { a: "C", b: "D", w: 3 },
+          { a: "C", b: "H", w: 4 },
+          { a: "D", b: "E", w: 4 },
+          { a: "E", b: "F", w: 4 },
+          { a: "E", b: "H", w: 3 },
+          { a: "F", b: "G", w: 4 },
+          { a: "F", b: "H", w: 4 },
+          { a: "G", b: "H", w: 5 }
+        ]
+      },
+      {
+        name: "Khu phố 3",
+        nodes: [
+          { id: "A", x: 160, y: 130 },
+          { id: "B", x: 390, y: 90 },
+          { id: "C", x: 640, y: 150 },
+          { id: "D", x: 760, y: 340 },
+          { id: "E", x: 560, y: 500 },
+          { id: "F", x: 280, y: 500 },
+          { id: "G", x: 100, y: 330 },
+          { id: "H", x: 420, y: 300 }
+        ],
+        edges: [
+          { a: "A", b: "B", w: 4 },
+          { a: "A", b: "G", w: 3 },
+          { a: "A", b: "H", w: 5 },
+          { a: "B", b: "C", w: 4 },
+          { a: "B", b: "H", w: 3 },
+          { a: "C", b: "D", w: 4 },
+          { a: "C", b: "H", w: 3 },
+          { a: "D", b: "E", w: 4 },
+          { a: "D", b: "H", w: 5 },
+          { a: "E", b: "F", w: 4 },
+          { a: "E", b: "H", w: 3 },
+          { a: "F", b: "G", w: 4 },
+          { a: "F", b: "H", w: 3 },
+          { a: "G", b: "H", w: 4 }
+        ]
+      }
+    ];
+
+    const svg = document.getElementById("mapSvg");
+    const mapSelect = document.getElementById("mapSelect");
+    const mapName = document.getElementById("mapName");
+    const graphInput = document.getElementById("graphInput");
+    const applyGraphBtn = document.getElementById("applyGraphBtn");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const inputError = document.getElementById("inputError");
+    const playBtn = document.getElementById("playBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const speedRange = document.getElementById("speedRange");
+    const speedValue = document.getElementById("speedValue");
+    const baseDistance = document.getElementById("baseDistance");
+    const routeDistance = document.getElementById("routeDistance");
+    const oddCount = document.getElementById("oddCount");
+    const duplicateCount = document.getElementById("duplicateCount");
+    const summary = document.getElementById("summary");
+    const routeList = document.getElementById("routeList");
+    const statusText = document.getElementById("statusText");
+
+    let animationFrame = null;
+    let lastTimestamp = 0;
+    let currentGraph = null;
+    let routeSegments = [];
+    let postmanMarker = null;
+    let isPlaying = false;
+    let animationProgress = 0;
+    const segmentLength = 1.2;
+
+    function parseGraphInput(text) {
+      const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length === 0) {
+        throw new Error("Hãy nhập ít nhất một cạnh.");
+      }
+
+      const edges = [];
+      const nodeIds = new Set();
+
+      lines.forEach((line, index) => {
+        const parts = line.split(/\s+/);
+        if (parts.length !== 2 && parts.length !== 3) {
+          throw new Error(`Dòng ${index + 1} không hợp lệ. Dùng dạng 'u v' hoặc 'u v w'.`);
+        }
+
+        const [a, b, weightText] = parts;
+        if (a === b) {
+          throw new Error(`Dòng ${index + 1} tạo khuyên tại đỉnh ${a}; hãy nhập hai đỉnh khác nhau.`);
+        }
+
+        const weight = weightText === undefined ? 1 : Number(weightText);
+        if (!Number.isFinite(weight) || weight <= 0) {
+          throw new Error(`Trọng số ở dòng ${index + 1} phải là số dương.`);
+        }
+
+        edges.push({ a, b, w: weight });
+        nodeIds.add(a);
+        nodeIds.add(b);
+      });
+
+      const ids = [...nodeIds].sort((left, right) => {
+        const leftNumber = Number(left);
+        const rightNumber = Number(right);
+        const bothNumeric = !Number.isNaN(leftNumber) && !Number.isNaN(rightNumber);
+        if (bothNumeric) return leftNumber - rightNumber;
+        return left.localeCompare(right, "vi");
+      });
+
+      if (!isConnected(ids, edges)) {
+        throw new Error("Đồ thị phải liên thông để mô phỏng bài toán người đưa thư.");
+      }
+
+      return {
+        name: "Đồ thị nhập tay",
+        nodes: layoutNodes(ids),
+        edges
+      };
+    }
+
+    function layoutNodes(ids) {
+      const centerX = 450;
+      const centerY = 300;
+      const radius = Math.max(150, Math.min(240, 70 + ids.length * 16));
+
+      return ids.map((id, index) => {
+        const angle = (-Math.PI / 2) + (index * Math.PI * 2) / ids.length;
+        return {
+          id,
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius
+        };
+      });
+    }
+
+    function isConnected(nodeIds, edges) {
+      if (nodeIds.length === 0) return false;
+
+      const adjacency = new Map(nodeIds.map((id) => [id, []]));
+      edges.forEach((edge) => {
+        adjacency.get(edge.a).push(edge.b);
+        adjacency.get(edge.b).push(edge.a);
+      });
+
+      const visited = new Set();
+      const stack = [nodeIds[0]];
+      while (stack.length > 0) {
+        const node = stack.pop();
+        if (visited.has(node)) continue;
+        visited.add(node);
+        adjacency.get(node).forEach((next) => {
+          if (!visited.has(next)) stack.push(next);
+        });
+      }
+
+      return visited.size === nodeIds.length;
+    }
+
+    function buildGraph(map) {
+      const nodes = new Map(map.nodes.map((node) => [node.id, { ...node }]));
+      const adjacency = new Map();
+      const degrees = new Map();
+
+      nodes.forEach((_, id) => {
+        adjacency.set(id, []);
+        degrees.set(id, 0);
+      });
+
+      const edges = map.edges.map((edge, index) => {
+        const entry = { ...edge, id: `edge-${index}` };
+        adjacency.get(edge.a).push({ to: edge.b, w: edge.w, edgeId: entry.id });
+        adjacency.get(edge.b).push({ to: edge.a, w: edge.w, edgeId: entry.id });
+        degrees.set(edge.a, degrees.get(edge.a) + 1);
+        degrees.set(edge.b, degrees.get(edge.b) + 1);
+        return entry;
+      });
+
+      const oddNodes = [...degrees.entries()]
+        .filter(([, degree]) => degree % 2 === 1)
+        .map(([id]) => id);
+
+      const baseDistanceValue = edges.reduce((sum, edge) => sum + edge.w, 0);
+      const shortestLookup = computeShortestPaths(nodes, adjacency, oddNodes);
+      const pairing = findMinimumPairing(oddNodes, shortestLookup);
+      const duplicatedEdges = pairingToEdges(pairing, shortestLookup);
+      const eulerSteps = createEulerCircuit(nodes, edges, duplicatedEdges, map.nodes[0].id);
+      const finalDistance = baseDistanceValue + duplicatedEdges.reduce((sum, item) => sum + item.w, 0);
+
+      return {
+        ...map,
+        nodes,
+        edges,
+        adjacency,
+        degrees,
+        oddNodes,
+        duplicatedEdges,
+        eulerSteps,
+        baseDistanceValue,
+        finalDistance
+      };
+    }
+
+    function computeShortestPaths(nodes, adjacency, oddNodes) {
+      const lookup = {};
+      oddNodes.forEach((start) => {
+        const { dist, prev } = dijkstra(nodes, adjacency, start);
+        lookup[start] = { dist, prev };
+      });
+      return lookup;
+    }
+
+    function dijkstra(nodes, adjacency, start) {
+      const dist = {};
+      const prev = {};
+      const visited = new Set();
+
+      nodes.forEach((_, id) => {
+        dist[id] = Infinity;
+        prev[id] = null;
+      });
+      dist[start] = 0;
+
+      while (visited.size < nodes.size) {
+        let current = null;
+        let best = Infinity;
+        nodes.forEach((_, id) => {
+          if (!visited.has(id) && dist[id] < best) {
+            best = dist[id];
+            current = id;
+          }
+        });
+        if (current === null) break;
+
+        visited.add(current);
+        adjacency.get(current).forEach((neighbor) => {
+          const alt = dist[current] + neighbor.w;
+          if (alt < dist[neighbor.to]) {
+            dist[neighbor.to] = alt;
+            prev[neighbor.to] = { node: current, edgeId: neighbor.edgeId, w: neighbor.w };
+          }
+        });
+      }
+
+      return { dist, prev };
+    }
+
+    function findMinimumPairing(oddNodes, shortestLookup) {
+      if (oddNodes.length === 0) return [];
+
+      const memo = new Map();
+
+      function solve(remaining) {
+        if (remaining.length === 0) return { cost: 0, pairs: [] };
+        const key = remaining.join("|");
+        if (memo.has(key)) return memo.get(key);
+
+        const first = remaining[0];
+        let best = { cost: Infinity, pairs: [] };
+
+        for (let i = 1; i < remaining.length; i += 1) {
+          const second = remaining[i];
+          const nextRemaining = remaining.filter((node) => node !== first && node !== second);
+          const partial = solve(nextRemaining);
+          const pairCost = shortestLookup[first].dist[second];
+          const candidate = {
+            cost: partial.cost + pairCost,
+            pairs: [[first, second], ...partial.pairs]
+          };
+          if (candidate.cost < best.cost) best = candidate;
+        }
+
+        memo.set(key, best);
+        return best;
+      }
+
+      return solve([...oddNodes]).pairs;
+    }
+
+    function pairingToEdges(pairing, lookup) {
+      const duplicates = [];
+
+      pairing.forEach(([start, end], pairIndex) => {
+        let cursor = end;
+        while (cursor !== start) {
+          const prevStep = lookup[start].prev[cursor];
+          if (!prevStep) break;
+          duplicates.push({
+            id: `dup-${pairIndex}-${duplicates.length}`,
+            a: prevStep.node,
+            b: cursor,
+            w: prevStep.w
+          });
+          cursor = prevStep.node;
+        }
+      });
+
+      return duplicates;
+    }
+
+    function createEulerCircuit(nodes, edges, duplicatedEdges, startNode) {
+      const allEdges = [
+        ...edges.map((edge) => ({ ...edge, duplicate: false })),
+        ...duplicatedEdges.map((edge) => ({ ...edge, duplicate: true }))
+      ];
+
+      const localAdj = new Map();
+      nodes.forEach((_, id) => localAdj.set(id, []));
+      allEdges.forEach((edge, index) => {
+        const edgeRef = { ...edge, localId: `local-${index}` };
+        localAdj.get(edge.a).push({ edge: edgeRef, to: edge.b });
+        localAdj.get(edge.b).push({ edge: edgeRef, to: edge.a });
+      });
+
+      const used = new Set();
+      const stack = [{ node: startNode, via: null }];
+      const circuit = [];
+
+      while (stack.length > 0) {
+        const top = stack[stack.length - 1];
+        const available = localAdj.get(top.node).find((item) => !used.has(item.edge.localId));
+
+        if (available) {
+          used.add(available.edge.localId);
+          stack.push({
+            node: available.to,
+            via: {
+              from: top.node,
+              to: available.to,
+              edge: available.edge
+            }
+          });
+        } else {
+          const popped = stack.pop();
+          if (popped.via) circuit.push(popped.via);
+        }
+      }
+
+      return circuit.reverse();
+    }
+
+    function renderMap() {
+      const graph = currentGraph;
+      svg.innerHTML = "";
+      routeSegments = [];
+      postmanMarker = null;
+
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs.innerHTML = `
+        <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="rgba(30, 50, 39, 0.25)"></feDropShadow>
+        </filter>
+      `;
+      svg.appendChild(defs);
+
+      graph.edges.forEach((edge) => {
+        svg.appendChild(makeLine(edge.a, edge.b, "road"));
+        svg.appendChild(makeLine(edge.a, edge.b, "road-outline"));
+        svg.appendChild(edgeLabel(edge));
+      });
+
+      graph.duplicatedEdges.forEach((edge) => {
+        svg.appendChild(makeLine(edge.a, edge.b, "dup-road"));
+      });
+
+      graph.eulerSteps.forEach((step, index) => {
+        const segment = makeLine(step.from, step.to, "route-segment");
+        segment.dataset.index = String(index);
+        svg.appendChild(segment);
+        routeSegments.push(segment);
+      });
+
+      graph.nodes.forEach((node) => {
+        svg.appendChild(drawHouse(node, graph.degrees.get(node.id), graph.oddNodes.includes(node.id)));
+      });
+
+      const startNodeId = graph.eulerSteps[0]?.from || graph.nodes.keys().next().value;
+      postmanMarker = drawPostman(graph.nodes.get(startNodeId));
+      svg.appendChild(postmanMarker);
+    }
+
+    function drawHouse(node, degree, isOdd) {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("filter", "url(#softShadow)");
+
+      const roof = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      roof.setAttribute("class", "house-roof");
+      roof.setAttribute("d", `M ${node.x - 32} ${node.y - 5} L ${node.x} ${node.y - 38} L ${node.x + 32} ${node.y - 5} Z`);
+
+      const body = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      body.setAttribute("class", "house-base");
+      body.setAttribute("x", node.x - 26);
+      body.setAttribute("y", node.y - 5);
+      body.setAttribute("width", 52);
+      body.setAttribute("height", 40);
+      body.setAttribute("rx", 8);
+
+      const door = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      door.setAttribute("x", node.x - 7);
+      door.setAttribute("y", node.y + 12);
+      door.setAttribute("width", 14);
+      door.setAttribute("height", 23);
+      door.setAttribute("rx", 4);
+      door.setAttribute("fill", "#8d5524");
+
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("class", "house-label");
+      label.setAttribute("x", node.x);
+      label.setAttribute("y", node.y + 62);
+      label.textContent = node.id;
+
+      const degreeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      degreeCircle.setAttribute("class", "degree-badge");
+      degreeCircle.setAttribute("cx", node.x + 28);
+      degreeCircle.setAttribute("cy", node.y - 24);
+      degreeCircle.setAttribute("r", 14);
+
+      const degreeLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      degreeLabel.setAttribute("class", "degree-text");
+      degreeLabel.setAttribute("x", node.x + 28);
+      degreeLabel.setAttribute("y", node.y - 20);
+      degreeLabel.textContent = degree;
+
+      group.appendChild(roof);
+      group.appendChild(body);
+      group.appendChild(door);
+      group.appendChild(label);
+      group.appendChild(degreeCircle);
+      group.appendChild(degreeLabel);
+
+      if (isOdd) {
+        const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        ring.setAttribute("class", "odd-ring");
+        ring.setAttribute("cx", node.x);
+        ring.setAttribute("cy", node.y - 5);
+        ring.setAttribute("r", 40);
+        group.insertBefore(ring, roof);
+      }
+
+      return group;
+    }
+
+    function drawPostman(node) {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("id", "postmanMarker");
+
+      const bag = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bag.setAttribute("class", "postbag");
+      bag.setAttribute("x", node.x - 8);
+      bag.setAttribute("y", node.y - 88);
+      bag.setAttribute("width", 16);
+      bag.setAttribute("height", 18);
+      bag.setAttribute("rx", 4);
+
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("class", "postman");
+      circle.setAttribute("cx", node.x);
+      circle.setAttribute("cy", node.y - 62);
+      circle.setAttribute("r", 13);
+
+      group.appendChild(bag);
+      group.appendChild(circle);
+      return group;
+    }
+
+    function makeLine(aId, bId, className) {
+      const a = currentGraph.nodes.get(aId);
+      const b = currentGraph.nodes.get(bId);
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", className);
+      line.setAttribute("x1", a.x);
+      line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x);
+      line.setAttribute("y2", b.y);
+      return line;
+    }
+
+    function edgeLabel(edge) {
+      const a = currentGraph.nodes.get(edge.a);
+      const b = currentGraph.nodes.get(edge.b);
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", (a.x + b.x) / 2);
+      text.setAttribute("y", (a.y + b.y) / 2 - 12);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("font-size", "13");
+      text.setAttribute("font-weight", "700");
+      text.setAttribute("fill", "#4c5b52");
+      text.textContent = edge.w;
+      return text;
+    }
+
+    function updateInfo() {
+      const graph = currentGraph;
+      baseDistance.textContent = `${graph.baseDistanceValue}`;
+      routeDistance.textContent = `${graph.finalDistance}`;
+      oddCount.textContent = `${graph.oddNodes.length}`;
+      duplicateCount.textContent = `${graph.duplicatedEdges.length}`;
+      mapName.textContent = graph.name;
+
+      summary.textContent = graph.oddNodes.length
+        ? `Nhà bậc lẻ: ${graph.oddNodes.join(", ")}. Cần lặp ${graph.duplicatedEdges.length} đoạn đường để mọi bậc trở thành chẵn.`
+        : "Không có nhà bậc lẻ, người đưa thư có thể đi qua mọi đường đúng một lần rồi quay về điểm xuất phát.";
+
+      routeList.innerHTML = "";
+      graph.eulerSteps.forEach((step, index) => {
+        const item = document.createElement("li");
+        item.textContent = `${index + 1}. ${step.from} -> ${step.to} (${step.edge.w})${step.edge.duplicate ? " | đoạn lặp" : ""}`;
+        routeList.appendChild(item);
+      });
+
+      const startNodeId = graph.eulerSteps[0]?.from || graph.nodes.keys().next().value;
+      statusText.textContent = `Lộ trình gồm ${graph.eulerSteps.length} chặng, xuất phát tại nhà ${startNodeId}.`;
+    }
+
+    function movePostman(node) {
+      if (!postmanMarker || !node) return;
+      const bag = postmanMarker.children[0];
+      const head = postmanMarker.children[1];
+      bag.setAttribute("x", node.x - 8);
+      bag.setAttribute("y", node.y - 88);
+      head.setAttribute("cx", node.x);
+      head.setAttribute("cy", node.y - 62);
+    }
+
+    function resetAnimation() {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+      lastTimestamp = 0;
+      isPlaying = false;
+      animationProgress = 0;
+      playBtn.textContent = "Chạy mô phỏng";
+
+      routeSegments.forEach((segment) => segment.classList.remove("active"));
+      routeList.querySelectorAll("li").forEach((item) => {
+        item.style.outline = "none";
+      });
+
+      const firstNodeId = currentGraph.eulerSteps[0]?.from || currentGraph.nodes.keys().next().value;
+      movePostman(currentGraph.nodes.get(firstNodeId));
+      statusText.textContent = `Đã đặt lại. Bắt đầu ở nhà ${firstNodeId}.`;
+    }
+
+    function highlightStep(stepIndex) {
+      routeSegments.forEach((segment, index) => {
+        segment.classList.toggle("active", index <= stepIndex);
+      });
+
+      routeList.querySelectorAll("li").forEach((item, index) => {
+        item.style.outline = index === stepIndex ? "2px solid rgba(12, 124, 89, 0.5)" : "none";
+      });
+    }
+
+    function interpolatePostman(fromId, toId, progress) {
+      const from = currentGraph.nodes.get(fromId);
+      const to = currentGraph.nodes.get(toId);
+      if (!from || !to) return;
+
+      movePostman({
+        x: from.x + (to.x - from.x) * progress,
+        y: from.y + (to.y - from.y) * progress
+      });
+    }
+
+    function playAnimation() {
+      if (isPlaying) {
+        isPlaying = false;
+        lastTimestamp = 0;
+        playBtn.textContent = "Tiếp tục";
+        statusText.textContent = "Tạm dừng mô phỏng.";
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+        return;
+      }
+
+      if (animationProgress >= currentGraph.eulerSteps.length * segmentLength) {
+        animationProgress = 0;
+        routeSegments.forEach((segment) => segment.classList.remove("active"));
+      }
+
+      isPlaying = true;
+      lastTimestamp = 0;
+      playBtn.textContent = "Tạm dừng";
+      statusText.textContent = "Người đưa thư đang phát thư.";
+      animationFrame = requestAnimationFrame(stepAnimation);
+    }
+
+    function stepAnimation(timestamp) {
+      if (!isPlaying) return;
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      animationProgress += delta * Number(speedRange.value);
+
+      const maxProgress = currentGraph.eulerSteps.length * segmentLength;
+      const boundedProgress = Math.min(animationProgress, maxProgress);
+      const stepIndex = Math.min(
+        Math.floor(boundedProgress / segmentLength),
+        currentGraph.eulerSteps.length - 1
+      );
+      const localProgress = boundedProgress >= maxProgress
+        ? 1
+        : Math.min((boundedProgress % segmentLength) / segmentLength, 1);
+      const step = currentGraph.eulerSteps[stepIndex];
+
+      highlightStep(stepIndex);
+      interpolatePostman(step.from, step.to, localProgress);
+
+      if (animationProgress >= maxProgress) {
+        isPlaying = false;
+        animationFrame = null;
+        lastTimestamp = 0;
+        playBtn.textContent = "Chạy lại";
+        statusText.textContent = `Hoàn thành. Người đưa thư đã quay lại nhà ${currentGraph.eulerSteps[currentGraph.eulerSteps.length - 1].to}.`;
+        return;
+      }
+
+      animationFrame = requestAnimationFrame(stepAnimation);
+    }
+
+    function loadMap(index) {
+      inputError.textContent = "";
+      currentGraph = buildGraph(maps[index]);
+      renderMap();
+      updateInfo();
+      resetAnimation();
+    }
+
+    function loadGraphFromInput() {
+      try {
+        const customGraph = parseGraphInput(graphInput.value);
+        inputError.textContent = "";
+        currentGraph = buildGraph(customGraph);
+        renderMap();
+        updateInfo();
+        resetAnimation();
+        mapName.textContent = customGraph.name;
+        statusText.textContent = "Đã dựng đồ thị từ danh sách cạnh.";
+      } catch (error) {
+        inputError.textContent = error.message;
+      }
+    }
+
+    mapSelect.addEventListener("change", (event) => {
+      loadMap(Number(event.target.value));
+    });
+
+    applyGraphBtn.addEventListener("click", loadGraphFromInput);
+    sampleBtn.addEventListener("click", () => {
+      graphInput.value = "1 2\n2 3\n2 4";
+      loadGraphFromInput();
+    });
+    playBtn.addEventListener("click", playAnimation);
+    resetBtn.addEventListener("click", resetAnimation);
+    speedRange.addEventListener("input", () => {
+      speedValue.textContent = `${Number(speedRange.value).toFixed(1)}x`;
+    });
+
+    loadGraphFromInput();
+  </script>
+</body>
+</html>
